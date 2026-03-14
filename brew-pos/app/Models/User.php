@@ -11,6 +11,9 @@ class User extends Authenticatable
 {
     use HasApiTokens, Notifiable, HasRoles;
 
+    // Ensure Spatie roles use the web guard (works with Sanctum tokens)
+    protected string $guard_name = 'web';
+
     protected $fillable = [
         'name',
         'email',

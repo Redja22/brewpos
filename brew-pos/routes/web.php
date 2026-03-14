@@ -2,6 +2,5 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// Single-page app entry; all routes are handled by Vue router
+Route::view('/{any?}', 'app')->where('any', '.*');
