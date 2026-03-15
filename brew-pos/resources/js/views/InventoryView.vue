@@ -70,6 +70,7 @@
       </div>
     </div>
 
+    <!-- Adjust Stock Modal -->
     <div v-if="adjustTarget" class="modal-overlay" @click.self="adjustTarget = null">
       <div class="modal" style="max-width:380px">
         <div class="modal-header">
@@ -114,30 +115,43 @@
       </div>
     </div>
 
+    <!-- Inventory Logs Modal -->
     <div v-if="showLogs" class="modal-overlay" @click.self="showLogs = false">
-      <div class="modal" style="max-width:680px">
+      <div class="modal" style="max-width:720px;width:95vw">
         <div class="modal-header">
           <h3 class="font-display">Inventory Logs</h3>
           <button class="btn btn-ghost btn-icon btn-sm" @click="showLogs = false">✕</button>
         </div>
-        <div class="modal-body" style="padding:0">
+        <!-- KEY FIX: max-height + overflow-y:auto so it scrolls instead of growing infinitely -->
+        <div class="modal-body" style="padding:0;max-height:65vh;overflow-y:auto">
           <table class="table">
-            <thead>
-              <tr><th>Product</th><th>Type</th><th>Change</th><th>Before</th><th>After</th><th>Notes</th><th>Time</th></tr>
+            <!-- Sticky header so column labels stay visible while scrolling -->
+            <thead style="position:sticky;top:0;z-index:1;background:var(--surface-2)">
+              <tr>
+                <th>Product</th>
+                <th>Type</th>
+                <th>Change</th>
+                <th>Before</th>
+                <th>After</th>
+                <th>Notes</th>
+                <th>Time</th>
+              </tr>
             </thead>
             <tbody>
               <tr v-for="log in logs" :key="log.id">
-                <td>{{ log.product?.name }}</td>
+                <td><strong>{{ log.product?.name }}</strong></td>
                 <td><span class="badge badge-pending" style="font-size:10px">{{ log.type }}</span></td>
-                <td :class="log.quantity_change < 0 ? 'text-danger' : 'text-success'">
+                <td :class="log.quantity_change < 0 ? 'text-danger' : 'text-success'" style="font-weight:600">
                   {{ log.quantity_change > 0 ? '+' : '' }}{{ log.quantity_change }}
                 </td>
                 <td class="text-muted">{{ log.quantity_before }}</td>
                 <td>{{ log.quantity_after }}</td>
                 <td class="text-muted text-sm">{{ log.notes || '—' }}</td>
-                <td class="text-muted text-sm">{{ formatDate(log.created_at) }}</td>
+                <td class="text-muted text-sm" style="white-space:nowrap">{{ formatDate(log.created_at) }}</td>
               </tr>
-              <tr v-if="logs.length === 0"><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted)">No logs yet</td></tr>
+              <tr v-if="logs.length === 0">
+                <td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted)">No logs yet</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -153,13 +167,13 @@ import api from '@/api';
 
 const toast = useToast();
 
-const inventory = ref([]);
-const logs = ref([]);
-const loading = ref(false);
+const inventory  = ref([]);
+const logs       = ref([]);
+const loading    = ref(false);
 const showLowStock = ref(false);
-const showLogs = ref(false);
+const showLogs   = ref(false);
 const adjustTarget = ref(null);
-const saving = ref(false);
+const saving     = ref(false);
 const pagination = ref({ current_page: 1, last_page: 1 });
 
 const adjustForm = reactive({ type: 'restock', quantity_change: 0, notes: '' });
@@ -208,30 +222,19 @@ async function openLogs() {
   await loadLogs();
 }
 
-function goToPage(p) {
-  loadInventory(p);
-}
-function isLow(inv) {
-  return inv.quantity <= inv.low_stock_threshold;
-}
+function goToPage(p) { loadInventory(p); }
+function isLow(inv)  { return inv.quantity <= inv.low_stock_threshold; }
 function formatDate(s) {
   return new Date(s).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 </script>
 
 <style scoped>
-.page-wrap {
-  padding: 16px;
-}
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-.low-stock-row td {
-  background: rgba(243, 156, 18, 0.04);
-}
+.page-wrap   { padding: 16px; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+
+.low-stock-row td { background: rgba(243, 156, 18, 0.04); }
+
 .stock-pill {
   display: inline-flex;
   align-items: center;
@@ -240,18 +243,11 @@ function formatDate(s) {
   font-size: 13px;
   font-weight: 600;
 }
-.stock-pill.ok {
-  background: rgba(39, 174, 96, 0.1);
-  color: #27ae60;
-}
-.stock-pill.low {
-  background: rgba(243, 156, 18, 0.12);
-  color: var(--status-pending);
-}
-.new-qty-preview {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
+.stock-pill.ok  { background: rgba(39, 174, 96, 0.1); color: #27ae60; }
+.stock-pill.low { background: rgba(243, 156, 18, 0.12); color: var(--status-pending); }
+
+.new-qty-preview { font-size: 13px; color: var(--text-secondary); }
+
 .pagination {
   display: flex;
   align-items: center;
@@ -260,9 +256,9 @@ function formatDate(s) {
   padding: 16px;
   border-top: 1px solid var(--border);
 }
-.loading-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+
+.loading-state { display: flex; align-items: center; justify-content: center; }
+
+.text-danger  { color: #e74c3c; }
+.text-success { color: #27ae60; }
 </style>

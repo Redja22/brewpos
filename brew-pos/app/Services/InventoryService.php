@@ -16,7 +16,15 @@ class InventoryService
     }
 
     /**
-     * Adjust inventory and create a log entry.
+     * Restock / restore inventory (used for cancellations, restocks).
+     */
+    public function restock(Inventory $inventory, int $quantity, string $type = 'adjustment', ?string $notes = null, ?int $userId = null, ?int $orderId = null): InventoryLog
+    {
+        return $this->adjust($inventory, abs($quantity), $type, $notes, $userId, $orderId);
+    }
+
+    /**
+     * Adjust inventory by a positive or negative amount and create a log entry.
      */
     public function adjust(Inventory $inventory, int $quantityChange, string $type = 'adjustment', ?string $notes = null, ?int $userId = null, ?int $orderId = null): InventoryLog
     {
@@ -33,7 +41,8 @@ class InventoryService
             'quantity_after'  => $inventory->quantity,
             'notes'           => $notes,
             'user_id'         => $userId,
-            'order_id'        => $orderId,
+            'reference_type'  => $orderId ? 'order' : null,
+            'reference_id'    => $orderId,
         ]);
     }
 }

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\Payment;
-use App\Models\Table;
 use Illuminate\Support\Facades\DB;
 
 class PaymentService
@@ -24,7 +23,10 @@ class PaymentService
                 'processed_at'     => now(),
             ]);
 
-            $order->update(['status' => 'completed', 'completed_at' => now()]);
+            // ✅ DO NOT change order status here.
+            // Order stays in its current status (preparing/ready).
+            // Kitchen is responsible for marking it as completed.
+            // Payment just records that the customer has paid.
 
             return $payment;
         });
