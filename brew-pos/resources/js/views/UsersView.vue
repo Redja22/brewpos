@@ -27,6 +27,7 @@
             </td>
             <td>
               <button class="btn btn-secondary btn-sm" @click="openEdit(u)">✏ Edit</button>
+              <button class="btn btn-danger btn-sm" style="margin-left:6px" @click="deleteUser(u)">🗑 Delete</button>
             </td>
           </tr>
           <tr v-if="users.length === 0">
@@ -36,6 +37,7 @@
       </table>
     </div>
 
+    <!-- Add/Edit Modal -->
     <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
       <div class="modal" style="max-width:440px">
         <div class="modal-header">
@@ -86,6 +88,29 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirm Modal -->
+    <div v-if="showDeleteModal" class="modal-overlay" @click.self="showDeleteModal = false">
+      <div class="modal" style="max-width:380px">
+        <div class="modal-header">
+          <h3 class="font-display">Delete User</h3>
+          <button class="btn btn-ghost btn-icon btn-sm" @click="showDeleteModal = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <p style="color:var(--text-secondary);line-height:1.6">
+            Are you sure you want to delete <strong>{{ userToDelete?.name }}</strong>?
+            This action cannot be undone.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showDeleteModal = false">Cancel</button>
+          <button class="btn btn-danger" :disabled="deleting" @click="confirmDelete">
+            <span v-if="deleting" class="spinner" style="width:14px;height:14px" />
+            Delete User
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -101,6 +126,10 @@ const showModal = ref(false);
 const editing = ref(null);
 const saving = ref(false);
 const formError = ref('');
+
+const showDeleteModal = ref(false);
+const userToDelete = ref(null);
+const deleting = ref(false);
 
 const form = reactive({ name: '', email: '', password: '', role: 'cashier', is_active: true });
 
@@ -152,6 +181,27 @@ async function save() {
     saving.value = false;
   }
 }
+
+function deleteUser(u) {
+  userToDelete.value = u;
+  showDeleteModal.value = true;
+}
+
+async function confirmDelete() {
+  if (!userToDelete.value) return;
+  deleting.value = true;
+  try {
+    await api.delete(`/users/${userToDelete.value.id}`);
+    toast.success('User deleted!');
+    showDeleteModal.value = false;
+    userToDelete.value = null;
+    await loadUsers();
+  } catch (e) {
+    toast.error(e.response?.data?.message || 'Error deleting user.');
+  } finally {
+    deleting.value = false;
+  }
+}
 </script>
 
 <style scoped>
@@ -182,7 +232,6 @@ async function save() {
   font-size: 13px;
   flex-shrink: 0;
 }
-
 .role-badge {
   display: inline-flex;
   align-items: center;
@@ -211,5 +260,17 @@ async function save() {
   background: rgba(230, 126, 34, 0.15);
   color: var(--status-preparing);
   border: 1px solid rgba(230, 126, 34, 0.3);
+}
+.btn-danger {
+  background: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.3);
+}
+.btn-danger:hover {
+  background: rgba(231, 76, 60, 0.25);
+}
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

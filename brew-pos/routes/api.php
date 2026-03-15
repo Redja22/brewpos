@@ -26,6 +26,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users', [AuthController::class, 'users']);
         Route::post('/users', [AuthController::class, 'storeUser']);
         Route::put('/users/{user}', [AuthController::class, 'updateUser']);
+        Route::delete('/users/{user}', [AuthController::class, 'deleteUser'])->middleware('role:admin');
     });
 
     // Categories

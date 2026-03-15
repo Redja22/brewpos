@@ -120,4 +120,19 @@ class AuthController extends Controller
 
         return response()->json($user);
     }
+
+   public function deleteUser(User $user): JsonResponse
+    {
+        if (!auth()->user()->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($user->id === auth()->id()) {
+            return response()->json(['message' => 'You cannot delete your own account.'], 403);
+        }
+
+        $user->delete();
+
+        return response()->json(['message' => 'User deleted successfully.']);
+    }
 }
