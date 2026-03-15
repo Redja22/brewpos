@@ -33,8 +33,8 @@ class ReportController extends Controller
         $completedOrders = Order::where('status', 'completed')
             ->whereBetween('created_at', $dateRange);
 
-        $totalRevenue = (clone $completedOrders)->sum('total_amount');
-        $totalOrders  = (clone $completedOrders)->count();
+        $totalRevenue  = (clone $completedOrders)->sum('total_amount');
+        $totalOrders   = (clone $completedOrders)->count();
         $avgOrderValue = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;
 
         // Hourly sales for today
@@ -44,6 +44,7 @@ class ReportController extends Controller
             ->groupByRaw($hourExpr)
             ->orderBy('hour')
             ->get();
+
         // Normalize to 24 hours (0-23) so charts always render
         $hourlySales = collect(range(0, 23))->map(function ($h) use ($hourlyRaw) {
             $hit = $hourlyRaw->firstWhere('hour', sprintf('%02d', $h)) ?? $hourlyRaw->firstWhere('hour', $h);
@@ -77,22 +78,76 @@ class ReportController extends Controller
             ->limit(10)
             ->get();
 
-        // Daily sales for the last 7 days
-        $dailyRaw = Order::where('status', 'completed')
-            ->where('created_at', '>=', now()->subDays(6)->startOfDay())
-            ->selectRaw("$dateExpr as date, SUM(total_amount) as revenue, COUNT(*) as orders")
-            ->groupByRaw($dateExpr)
-            ->orderBy('date')
-            ->get();
-        $dates = collect(range(0, 6))->map(fn ($i) => now()->subDays(6 - $i)->toDateString());
-        $dailySales = $dates->map(function ($d) use ($dailyRaw) {
-            $hit = $dailyRaw->firstWhere('date', $d);
-            return [
-                'date'    => $d,
-                'revenue' => $hit->revenue ?? 0,
-                'orders'  => $hit->orders ?? 0,
-            ];
-        });
+        // Daily sales — period-aware
+        $dailySales = match ($period) {
+
+            // This Month: monthly sales comparison for the current year (Jan → current month)
+            'month' => (function () use ($driver) {
+                $monthExpr = $driver === 'sqlite'
+                    ? "strftime('%m', created_at)"
+                    : "MONTH(created_at)";
+
+                $raw = Order::where('status', 'completed')
+                    ->whereYear('created_at', now()->year)
+                    ->selectRaw("$monthExpr as month, SUM(total_amount) as revenue, COUNT(*) as orders")
+                    ->groupByRaw($monthExpr)
+                    ->orderBy('month')
+                    ->get();
+
+                $currentMonth = now()->month;
+                return collect(range(1, $currentMonth))->map(function ($m) use ($raw) {
+                    $hit = $raw->firstWhere('month', $m)
+                        ?? $raw->firstWhere('month', sprintf('%02d', $m));
+                    return [
+                        'date'    => $m,   // month number (1–12), reusing 'date' key
+                        'revenue' => $hit->revenue ?? 0,
+                        'orders'  => $hit->orders ?? 0,
+                    ];
+                });
+            })(),
+
+            // This Week: Mon–Sun of the current week
+            'week' => (function () use ($dateExpr) {
+                $start = now()->startOfWeek(); // Monday
+                $end   = now()->endOfWeek();   // Sunday
+                $raw   = Order::where('status', 'completed')
+                    ->whereBetween('created_at', [$start, $end])
+                    ->selectRaw("$dateExpr as date, SUM(total_amount) as revenue, COUNT(*) as orders")
+                    ->groupByRaw($dateExpr)
+                    ->orderBy('date')
+                    ->get();
+
+                return collect(range(0, 6))->map(function ($i) use ($start, $raw) {
+                    $ds  = $start->copy()->addDays($i)->toDateString();
+                    $hit = $raw->firstWhere('date', $ds);
+                    return [
+                        'date'    => $ds,
+                        'revenue' => $hit->revenue ?? 0,
+                        'orders'  => $hit->orders ?? 0,
+                    ];
+                });
+            })(),
+
+            // Today (default): last 7 days
+            default => (function () use ($dateExpr) {
+                $raw   = Order::where('status', 'completed')
+                    ->where('created_at', '>=', now()->subDays(6)->startOfDay())
+                    ->selectRaw("$dateExpr as date, SUM(total_amount) as revenue, COUNT(*) as orders")
+                    ->groupByRaw($dateExpr)
+                    ->orderBy('date')
+                    ->get();
+
+                $dates = collect(range(0, 6))->map(fn ($i) => now()->subDays(6 - $i)->toDateString());
+                return $dates->map(function ($d) use ($raw) {
+                    $hit = $raw->firstWhere('date', $d);
+                    return [
+                        'date'    => $d,
+                        'revenue' => $hit->revenue ?? 0,
+                        'orders'  => $hit->orders ?? 0,
+                    ];
+                });
+            })(),
+        };
 
         return response()->json([
             'summary' => [
@@ -106,6 +161,11 @@ class ReportController extends Controller
             'payment_breakdown' => $paymentBreakdown,
             'recent_orders'     => $recentOrders,
             'daily_sales'       => $dailySales,
+            'daily_sales_label' => match ($period) {
+                'month' => 'Daily Sales (This Month)',
+                'week'  => 'Daily Sales (This Week)',
+                default => 'Daily Sales (Last 7 Days)',
+            },
         ]);
     }
 
