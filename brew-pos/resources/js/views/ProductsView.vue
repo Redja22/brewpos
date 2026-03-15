@@ -148,6 +148,8 @@ const selectedFile = ref(null);
 const search = ref('');
 const filterCategory = ref('');
 
+const BOOLEAN_FIELDS = ['is_active', 'is_available', 'track_inventory'];
+
 const form = reactive({
   name: '',
   category_id: '',
@@ -236,15 +238,30 @@ async function saveProduct() {
   saving.value = true;
   try {
     const fd = new FormData();
-    Object.entries(form).forEach(([k, v]) => fd.append(k, v));
-    if (selectedFile.value) fd.append('image', selectedFile.value);
+
+    Object.entries(form).forEach(([k, v]) => {
+      if (BOOLEAN_FIELDS.includes(k)) {
+        fd.append(k, v ? '1' : '0');
+      } else if (v !== null && v !== undefined && v !== '') {
+        fd.append(k, v);
+      }
+    });
+
+    // Only append image if a new file was selected
+    if (selectedFile.value) {
+      fd.append('image', selectedFile.value);
+    }
 
     if (editing.value) {
       fd.append('_method', 'PUT');
-      await api.post(`/products/${editing.value.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post(`/products/${editing.value.id}`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       toast.success('Product updated!');
     } else {
-      await api.post('/products', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post('/products', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       toast.success('Product added!');
     }
 

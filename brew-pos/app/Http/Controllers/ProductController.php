@@ -39,13 +39,16 @@ class ProductController extends Controller
             'track_inventory' => 'boolean',
             'initial_stock' => 'nullable|integer|min:0',
             'low_stock_threshold' => 'nullable|integer|min:0',
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable|file|image|max:2048', // ✅ added file|
         ]);
 
         $data['slug'] = Str::slug($data['name']) . '-' . uniqid();
 
-        if ($request->hasFile('image')) {
+        // ✅ Only store if actual file uploaded
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
             $data['image'] = $request->file('image')->store('products', 'public');
+        } else {
+            unset($data['image']); // ✅ Remove from data if not a real file
         }
 
         $data['is_active'] = $data['is_active'] ?? true;
@@ -54,7 +57,6 @@ class ProductController extends Controller
 
         $product = Product::create($data);
 
-        // Create inventory record
         Inventory::create([
             'product_id' => $product->id,
             'quantity' => $data['initial_stock'] ?? 0,
@@ -81,14 +83,17 @@ class ProductController extends Controller
             'is_active' => 'boolean',
             'is_available' => 'boolean',
             'track_inventory' => 'boolean',
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable|file|image|max:2048', // ✅ added file|
         ]);
 
-        if ($request->hasFile('image')) {
+        // ✅ Only process image if actual file uploaded
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
             if ($product->image) {
                 Storage::disk('public')->delete($product->image);
             }
             $data['image'] = $request->file('image')->store('products', 'public');
+        } else {
+            unset($data['image']); // ✅ Don't overwrite existing image
         }
 
         if (isset($data['name'])) {
@@ -99,7 +104,6 @@ class ProductController extends Controller
 
         return response()->json($product->load(['category', 'inventory']));
     }
-
     public function destroy(Product $product): JsonResponse
     {
         if ($product->image) {
